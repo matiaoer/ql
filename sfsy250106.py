@@ -1695,6 +1695,289 @@ def import_Tools():
     import CHERWIN_TOOLS
     ENV, APP_INFO, TIPS, TIPS_HTML, AuthorCode = CHERWIN_TOOLS.main(APP_NAME, local_script_name, ENV_NAME,
                                                                     local_version)
+    def csy2025(self):
+        """
+        查询财神爷任务列表，并处理任务逻辑。
+        """
+        Log('>>>>>>开始端午活动')
+        try:
+            _id = random.choice([invite for invite in inviteId if invite != self.user_id])
+            self.do_request(
+                "https://mcs-mimp-web.sf-express.com/mcs-mimp/commonNoLoginPost/~memberNonactivity~dragonBoat2025IndexService~index",
+                {"inviteType": 4, "inviteUserId": _id})
+            payload = {"activityCode": "DRAGONBOAT_2025", "channelType": "MINI_PROGRAM"}
+            url = "https://mcs-mimp-web.sf-express.com/mcs-mimp/commonPost/~memberNonactivity~activityTaskService~taskList"
+
+            response = self.do_request(url, payload)
+            if isinstance(response, dict) and response.get('success'):
+                tasks = response.get('obj', [])
+                for task in tasks:
+                    taskType = task.get('taskType', None)
+                    taskName = task.get('taskName', '未知任务')
+                    taskCode = task.get('taskCode', None)
+                    taskStatus = task.get('status', 0)
+
+                    if taskType not in ['BROWSE_LIFE_SERVICE', 'INTEGRAL_EXCHANGE', 'BROWSE_VIP_CENTER']:
+                        continue
+                    Log(f"> 正在处理任务【{taskName}】")
+
+                    if taskStatus == 3:
+                        Log(f"> 任务【{taskName}】已完成，跳过")
+                        continue
+
+                    if taskCode:
+                        self.DRAGONBOAT_2025_finishTask(taskCode, taskName)
+                        self.fetchTasksReward()
+        except Exception as e:
+            import traceback
+            Log(f"任务查询时出现异常：{e}\n{traceback.format_exc()}")
+
+    def lingtili(self):
+        try:
+            print("领体力")
+            url = "https://mcs-mimp-web.sf-express.com/mcs-mimp/commonPost/~memberNonactivity~dragonBoat2025HastenService~receiveCountdownReward"
+            response = self.do_request(url, {})
+            return response.get('success', False)
+        except Exception as e:
+            import traceback
+            Log(f"领体力时出现异常：{e}\n{traceback.format_exc()}")
+            return False
+
+    def cxcs(self):
+        Log('====== 开始加速 ======')
+        try:
+            query_payload = {}
+            query_url = "https://mcs-mimp-web.sf-express.com/mcs-mimp/commonPost/~memberNonactivity~dragonBoat2025HastenService~getHastenStatus"
+            query_response = self.do_request(query_url, query_payload)
+            if query_response.get('success') and query_response.get('obj'):
+                wealth_chance = query_response['obj'].get('remainHastenChance', 0)
+
+                Log(f'当前有 {wealth_chance} 次加速机会')
+
+                if wealth_chance > 0:
+                    draw_url = "https://mcs-mimp-web.sf-express.com/mcs-mimp/commonPost/~memberNonactivity~dragonBoat2025HastenService~hastenLottery"
+                    for i in range(wealth_chance):
+                        Log(f'>>> 开始第 {i + 1} 次加速')
+                        draw_payload = {}
+                        draw_response = self.do_request(draw_url, draw_payload)
+                        if draw_response.get('success') and draw_response.get('obj'):
+                            draw_obj = draw_response.get('obj')
+                            received_account_list = draw_obj.get('remainHastenChance', 0)
+                            Log(f'加速成功: 剩余{received_account_list}次')
+                            if 'award' in draw_obj:
+                                Log(f"获得 {draw_obj.get('award', {}).get('productName', '未知')}")
+                            elif 'paidProductPacket' in draw_obj:
+                                Log(f"获得 {draw_obj.get('paidProductPacket', {}).get('productName', '未知')}")
+                        else:
+                            error_message = draw_response.get('errorMessage', '无返回')
+                            Log(f'加速失败: {error_message}')
+                        time.sleep(5)
+                else:
+                    Log('没有剩余的加速机会')
+                if query_response.get('obj').get('countdownAwardReceived'):
+                    print("今日体力已完成，明天再来")
+                else:
+                    date = datetime.strptime(query_response.get('date'), "%Y-%m-%d %H:%M:%S")
+                    start = datetime.strptime(query_response.get('obj').get('countdownStartTime'), "%Y-%m-%d %H:%M:%S")
+                    time_diff = (date - start).total_seconds()
+                    if time_diff > query_response.get('obj').get('countdownLength'):
+                        if self.lingtili():
+                            self.cxcs()
+                    else:
+                        print(f"还差 {query_response.get('obj').get('countdownLength') - time_diff} 秒 后才能领体力")
+            else:
+                error_message = query_response.get('errorMessage', '无法查询加速机会')
+                Log(f'查询加速机会失败，原因：{error_message}')
+
+        except Exception as e:
+            import traceback
+            Log(f'加速时出现异常：{e}\n{traceback.format_exc()}')
+
+        Log('====== 加速结束 ======')
+
+    def index2025(self):
+        Log(f'====== 查询抽奖状态 ======')
+        try:
+            query_payload = {}
+            query_url = "https://mcs-mimp-web.sf-express.com/mcs-mimp/commonPost/~memberNonactivity~dragonBoat2025UpgradeService~getUpgradeStatus"
+            query_response = self.do_request(query_url, query_payload)
+
+            if query_response.get('success') and query_response.get('obj'):
+                Log(f"当前等级 {query_response.get('obj', {}).get('currentLevel', '无')} 当前进度 {query_response.get('obj', {}).get('currentRatio', '无')}% 还差 {query_response.get('obj', {}).get('nextLevelUpgradeTimes', 0) - query_response.get('obj', {}).get('currentUpgradeTimes', 0)} 次加速升级 ")
+
+                obj = query_response.get('obj', {})
+                current_account_list = obj.get('levelList', [])
+                t_ = True
+                for account in current_account_list:
+                    currency = account.get('currency')
+                    balance = account.get('balance', 0)
+                    if currency == "TRICYCLE":
+                        if balance:
+                            Log(f"三轮车 有 {balance} 次抽奖\n")
+                            t_ = False
+                    elif currency == "TRUCK":
+                        if balance:
+                            Log(f"货车 有 {balance} 次抽奖\n")
+                            t_ = False
+                    elif currency == "COOL_TRUCK":
+                        if balance:
+                            Log(f"冷运车 有 {balance} 次抽奖\n")
+                            t_ = False
+                    elif currency == "SEDAN":
+                        if balance:
+                            Log(f"轿车 有 {balance} 次抽奖\n")
+                            t_ = False
+                    elif currency == "SPORTS_CAR":
+                        if balance:
+                            Log(f"跑车 有 {balance} 次抽奖\n")
+                            t_ = False
+                    elif currency == "DRONE":
+                        if balance:
+                            Log(f"无人机 有 {balance} 次抽奖\n")
+                            t_ = False
+                    elif currency == "HSR":
+                        if balance:
+                            Log(f"高铁 有 {balance} 次抽奖\n")
+                            t_ = False
+                    elif currency == "PLANE":
+                        if balance:
+                            Log(f"飞机 有 {balance} 次抽奖\n")
+                            t_ = False
+                    elif currency == "SEDAN":
+                        if balance:
+                            Log(f"动感飞机 有 {balance} 次抽奖\n")
+                            t_ = False
+                    elif currency == "SPORTS_CAR":
+                        if balance:
+                            Log(f"浪漫飞机 有 {balance} 次抽奖\n")
+                            t_ = False
+                    elif currency == "DRONE":
+                        if balance:
+                            Log(f"闪耀飞机 有 {balance} 次抽奖\n")
+                            t_ = False
+                    elif currency == "HSR":
+                        if balance:
+                            Log(f"星际飞机 有 {balance} 次抽奖\n")
+                            t_ = False
+                    elif currency == "PLANE":
+                        if balance:
+                            Log(f"时光机 有 {balance} 次抽奖\n")
+                            t_ = False
+
+                if t_:
+                    Log(f"没有抽奖次数")
+
+            else:
+                error_log = f"查询失败或数据为空"
+                Log(error_log)
+                self.all_logs.append(error_log)
+        except Exception as e:
+            import traceback
+            Log(f"查询状态时出现异常: {e}\n{traceback.format_exc()}")
+
+    def DRAGONBOAT_2025_finishTask(self, taskCode, taskName):
+        try:
+            payload = {"taskCode": taskCode}
+            url = 'https://mcs-mimp-web.sf-express.com/mcs-mimp/commonPost/~memberEs~taskRecord~finishTask'
+
+            response = self.do_request(url, payload)
+
+            if isinstance(response, dict) and response.get('success'):
+                obj = response.get('obj', None)
+                if obj is True:
+                    Log(f"> {taskName}-已完成")
+                    return True
+                elif obj is False:
+                    # Log(f"> {taskName}-未完成，失败原因：返回的 obj 为 False，任务可能无效或已完成")
+                    self.fetchTasksReward()
+                    return False
+                elif isinstance(obj, dict):
+                    data = obj.get('data', [])
+                    Log(f"> {taskName}-已完成，返回数据：{data}")
+                    return True
+                else:
+                    Log(f"> {taskName}-未完成，失败原因：返回的 obj 类型未知，实际为: {obj}")
+                    return False
+            else:
+                error_message = response.get('errorMessage', '无返回') if isinstance(response, dict) else '未知错误'
+                Log(f"> {taskName}-未完成，失败原因：{error_message}")
+                return False
+        except Exception as e:
+            import traceback
+            Log(f"{taskName}-未完成，任务代码：【{taskCode}】，异常信息：{e}\n{traceback.format_exc()}")
+            return False
+
+    def sendMsg(self, help=False):
+        if self.send_UID:
+            push_res = CHERWIN_TOOLS.wxpusher(self.send_UID, one_msg, APP_NAME, help)
+            print(push_res)
+
+    def duanwuChoujiang(self):
+        Log('====== 开始端午抽奖 ======')
+        try:
+            # 定义交通工具映射
+            vehicle_mapping = {
+                "三轮车": "TRICYCLE",
+                "货车": "TRUCK",
+                "冷运车": "COOL_TRUCK",
+                "轿车": "SEDAN",
+                "跑车": "SPORTS_CAR",
+                "无人机": "DRONE",
+                "高铁": "HSR",
+                "飞机": "PLANE",
+                "动感飞机": "DYNAMIC_PLANE",
+                "浪漫飞机": "ROMANTIC_PLANE",
+                "闪耀飞机": "SHINING_PLANE",
+                "星际飞机": "INTERSTELLAR_PLANE",
+                "时光机": "TIME_MACHINE"
+            }
+            # 查询抽奖状态
+            query_payload = {}
+            query_url = "https://mcs-mimp-web.sf-express.com/mcs-mimp/commonPost/~memberNonactivity~dragonBoat2025UpgradeService~getUpgradeStatus"
+            query_response = self.do_request(query_url, query_payload)
+            if query_response.get('success') and query_response.get('obj'):
+                level_list = query_response['obj'].get('levelList', [])
+                # 遍历每个交通工具检查次数
+                for level in level_list:
+                    currency = level.get('currency')
+                    balance = level.get('balance', 0)
+                    if balance > 0:
+                        # 执行抽奖
+
+                        for i in range(balance):
+                            Log(f'>>> 开始第 {i + 1} 次抽奖 使用{currency}')
+                            draw_payload = {"currency": currency}
+                            draw_url = "https://mcs-mimp-web.sf-express.com/mcs-mimp/commonPost/~memberNonactivity~dragonBoat2025LotteryService~prizeDraw"
+                            draw_response = self.do_request(draw_url, draw_payload)
+
+                            if draw_response.get('success') and draw_response.get('obj'):
+                                gift = draw_response['obj']
+                                gift_name = gift.get('giftBagName', '')
+                                Log(f'抽奖成功: 获得 {gift_name}')
+                            else:
+                                error_message = draw_response.get('errorMessage', '无返回')
+                                Log(f'抽奖失败: {error_message}')
+                            time.sleep(1)  # 添加延迟避免请求过快
+                Log("已用完抽奖机会")
+                response = self.do_request(
+                    "https://mcs-mimp-web.sf-express.com/mcs-mimp/commonPost/~activityCore~userAwardService~queryUserAward",
+                    {"tag": "DRAGONBOAT_2025", "productType": "", "pageNo": 1, "pageSize": 200})
+
+                if response.get('success') and response.get('obj') and response.get('obj', {}).get('total', 0):
+                    Log(f"抽中奖品 {response.get('obj', {}).get('total', 0)} 个")
+                    arr = []
+                    for on_ in response.get('obj', {}).get('list', []):
+                        arr.append(on_['productName'])
+                    Log(f"奖品列表{arr}")
+            else:
+                error_message = query_response.get('errorMessage', '无法查询抽奖状态')
+                Log(f'查询抽奖状态失败: {error_message}')
+
+        except Exception as e:
+            import traceback
+            Log(f'端午抽奖时出现异常: {e}\n{traceback.format_exc()}')
+
+        Log('====== 端午抽奖结束 ======')
 
 
 if __name__ == '__main__':
